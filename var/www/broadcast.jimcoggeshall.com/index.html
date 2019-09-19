@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta http-equiv="refresh" content="300">
+    <title>Broadcast</title>
+    <link rel="icon" href="favicon.ico" />
+    <body style="background-color:#000000; margin:0px; padding:0px">
+    <style>
+      * { 
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: rgba(255,255,255,0);
+      }
+      .inner-center {
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: normal;
+       	display: inline;
+        justify-content: center;
+        text-align: center;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90vw;
+        padding: 0vh 5vw 0vh 5vw;
+        margin: 0px;
+        border: 0px;
+      }
+      .outer-center {
+        color: white;
+        height: 100vh;
+        width: 100vw;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="outer-center" id="outer">
+      <div class="inner-center" id="inner">
+      </div>
+    </div>
+    <script>
+
+      var ws = new WebSocket("wss://broadcast.jimcoggeshall.com/ws");
+      ws.onmessage = function(event) {
+        var m = event.data;
+        var am = m.split("\\t");
+        renderArray([am[0]]);
+        setTimeout(function() {
+          renderArray(am);
+        }, 10000);
+      };
+      ws.onclose = ev => location.reload();
+      ws.onerror = er => setTimeout(() => location.reload(true), 30000);
+
+      function renderArray(a) {
+        var inner = document.getElementById("inner");
+        while (inner.firstChild) {
+          inner.removeChild(inner.firstChild);
+        }
+        for (i = 0; i < a.length; i++) {
+          appendMessage(a[i]);
+        }
+      }
+
+      function appendMessage(m) {
+        var p = document.createElement("p");
+        p.style.margin = "0%";
+        var n = document.createTextNode(m);
+        p.appendChild(n);
+        var e = document.getElementById("inner");
+        e.appendChild(p);
+        fixLayout();
+      }
+
+      function render(m) {
+        document.getElementById("inner").style.fontSize = "calc(3em + 1vw)";
+        document.getElementById("inner").style.lineHeight = "120%";
+        document.getElementById("inner").innerHTML = m;
+        fitVertical(m);
+      }
+
+      function fitVertical(m) {
+        while (document.getElementById("inner").scrollHeight > window.innerHeight) {
+          let style = window.getComputedStyle(document.getElementById("inner"), null);
+          let cfs = style.getPropertyValue("font-size");
+          document.getElementById("inner").style.fontSize = 0.8*cfs.replace("px", "") + "px";
+          document.getElementById("inner").innerHTML = m;
+        }
+      }
+
+      function fixLayout() {
+        render(document.getElementById("inner").innerHTML);
+      }
+      window.addEventListener("resize", fixLayout);
+
+    </script>
+  </body>
+
+</html>

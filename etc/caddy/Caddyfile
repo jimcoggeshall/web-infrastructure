@@ -1,0 +1,99 @@
+chat.jimcoggeshall.com {
+    header / {
+        Strict-Transport-Security "max-age=31536000;"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data:"
+        Referrer-Policy "no-referrer"
+        Feature-Policy "autoplay 'self'; camera 'self'; display-capture 'self'; document-domain 'self'; encrypted-media 'self'; fullscreen 'self'; geolocation 'self'; microphone 'self'; midi 'self'; payment 'self'; vr 'self'"
+        -Server
+    }
+    proxy / localhost:3000 {
+        websocket
+        transparent
+    }
+}
+
+jimcoggeshall.com, www.jimcoggeshall.com, cloud.jimcoggeshall.com {
+    root /var/www/jimcoggeshall.com
+    header / {
+        Strict-Transport-Security "max-age=31536000;"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Content-Security-Policy "default-src 'self'"
+        Referrer-Policy "no-referrer"
+        Feature-Policy "autoplay 'self'; camera 'self'; display-capture 'self'; document-domain 'self'; encrypted-media 'self'; fullscreen 'self'; geolocation 'self'; microphone 'self'; midi 'self'; payment 'self'; vr 'self'"
+        -Server
+    }
+}
+
+apps.jimcoggeshall.com {
+    root /var/www/apps.jimcoggeshall.com
+    minify /
+    header / {
+        Strict-Transport-Security "max-age=31536000;"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Content-Security-Policy "default-src * 'unsafe-inline' 'unsafe-eval'"
+        Referrer-Policy "no-referrer"
+        Feature-Policy "autoplay 'self'; camera 'self'; display-capture 'self'; document-domain 'self'; encrypted-media 'self'; fullscreen 'self'; geolocation 'self'; microphone 'self'; midi 'self'; payment 'self'; vr 'self'"
+        -Server
+    }
+}
+
+broadcast.jimcoggeshall.com {
+    minify {
+       if {path} not_match ^(\/ws).*
+    }
+    root /var/www/broadcast.jimcoggeshall.com
+    header / {
+        Strict-Transport-Security "max-age=31536000;"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Content-Security-Policy "default-src * 'unsafe-inline' 'unsafe-eval'"
+        Referrer-Policy "no-referrer"
+        Feature-Policy "autoplay 'self'; camera 'self'; display-capture 'self'; document-domain 'self'; encrypted-media 'self'; fullscreen 'self'; geolocation 'self'; microphone 'self'; midi 'self'; payment 'self'; vr 'self'"
+        -Server
+    }
+    proxy /ws localhost:9080 {
+        websocket
+    }
+}
+
+127.0.0.1:2015 {
+    root /var/www/localhost
+}
+
+status.jimcoggeshall.com {
+    header / {
+        Strict-Transport-Security "max-age=31536000;"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Feature-Policy "autoplay 'self'; camera 'self'; display-capture 'self'; document-domain 'self'; encrypted-media 'self'; fullscreen 'self'; geolocation 'self'; microphone 'self'; midi 'self'; payment 'self'; vr 'self'"
+        -Server
+    }
+    jwt {
+        path /
+        redirect /login
+        allow sub jim
+        except /favicon.ico
+    }
+    login {
+        success_url /
+        simple jim=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    }
+    root /var/www/status.jimcoggeshall.com
+    browse /browse
+    gzip
+}
+
+
+lab.jimcoggeshall.com {
+    root /var/www/lab.jimcoggeshall.com
+}

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Paper</title>
+    <link rel="icon" href="favicon.ico" />
+    <body style="background-color:#FFFFFF; margin:0px; padding:0px">
+    <style>
+      .center {
+        display: block;
+        width: 90vw;
+        height: auto;
+        margin-top: 5vh;
+        margin-bottom: 5vh;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    </style>
+  </head>
+
+  <body>
+    <img class="center" id="im">
+  </body>
+
+  <script src="paper/list.js"></script>
+  <script>
+
+    const scrollSecondsPrecalib = 40;
+    const scrollSecondsMax = 180;
+    const scrollSecondsMin = 30;
+    const pageSeconds = 5;
+    var scrollInterval;
+    var pageTimeout;
+    var pages = pagesOrig.slice(0, -1);
+    var scrollCoef = [1, 0, -1, 0];
+
+    function toPx(instr) {
+      return Math.max(Math.round(1.0*instr.replace("px", "")) - 1, 0);
+    }
+
+    function totalHeight() {
+      var ims = window.getComputedStyle(document.getElementById("im"));
+      var computedTotalHeight = toPx(ims.getPropertyValue("margin-top")) + toPx(ims.getPropertyValue("margin-bottom")) + toPx(ims.getPropertyValue("height"));
+      return computedTotalHeight;
+    }
+
+    function totalWidth() {
+      var ims = window.getComputedStyle(document.getElementById("im"));
+      var computedTotalWidth = toPx(ims.getPropertyValue("margin-left")) + toPx(ims.getPropertyValue("margin-right")) + toPx(ims.getPropertyValue("width"));
+      return computedTotalWidth;
+    }
+
+    function totalVerticalScroll() {
+      var computedTotalHeight = totalHeight();
+      return Math.max(computedTotalHeight - window.innerHeight, 0);
+    }
+
+    function remainingVerticalScroll() {
+      var computedTotalHeight = totalHeight();
+      var bottomEdgePosition = window.innerHeight + window.pageYOffset;
+      var remainingVertical = computedTotalHeight - bottomEdgePosition;
+      return Math.max(remainingVertical, 0);
+    }
+
+    function setPageTimeout() {
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      pageTimeout = setTimeout(() => {
+        nextImage();
+        clearTimeout(pageTimeout);
+        clearInterval(scrollInterval);
+      }, 1000*pageSeconds);
+      return;
+    }
+
+    function setScrollInterval() {
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      var totalPossibleScroll = Math.max(totalVerticalScroll(), 1);
+      var totalPossibleHeight = Math.max(totalHeight(), 1);
+      var totalPossibleWidth = Math.max(totalWidth(), 1);
+      var tallness = (totalPossibleScroll/totalPossibleHeight)*(totalPossibleHeight/totalPossibleWidth);
+      var scrollSecondsCalib = Math.min(scrollSecondsPrecalib*Math.pow(tallness, 2), scrollSecondsMax);
+      var msPerPixelMax = Math.round((1000*scrollSecondsCalib/totalPossibleScroll));
+      var msPerPixelMin = Math.round(1000*scrollSecondsMin/totalPossibleScroll);
+      var msPerPixel = Math.max(msPerPixelMax, msPerPixelMin);
+      scrollInterval = setInterval(() => {
+        if (remainingVerticalScroll() == 0) {
+          clearInterval(scrollInterval);
+          setPageTimeout();
+        } else {
+          window.scrollBy(0, scrollCoef[0]);
+        }
+      }, msPerPixel);
+      return;
+    }
+
+    function newPageLoaded() {
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      window.scrollTo(0, 0);
+      startAuto();
+    }
+
+    function newPage() {
+      document.getElementById("im").src = pages[0];
+    }
+
+    function nextImage() {
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      pages.push(pages.shift());
+      newPage();
+    }
+
+    function prevImage() {
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      pages.unshift(pages.pop());
+      newPage();
+    }
+
+    newPage();
+
+    function startAuto() {
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      setScrollInterval();
+    }
+
+    function toggleScroll() {
+      scrollCoef.push(scrollCoef.shift());
+      startAuto();
+    }
+
+    function handleKeypress(e) {
+      if (e.defaultPrevented) {
+        return;
+      }
+      var k = e.key;
+      switch (k) {
+        case "Right":
+        case "ArrowRight":
+          nextImage();
+          break;
+        case "Left":
+        case "ArrowLeft":
+          prevImage();
+          break;
+        case "Down":
+        case "ArrowDown":
+        case "Up":
+        case "ArrowUp":
+          return;
+        case " ":
+        case "Enter":
+          toggleScroll();
+          break;
+        default:
+          break;
+      }
+      e.preventDefault();
+    }
+
+    function handleTouch(e) {
+      if (e.defaultPrevented) {
+        return;
+      }
+      clearInterval(scrollInterval);
+      clearTimeout(pageTimeout);
+      toggleScroll();
+      e.stopPropagation();
+      e.preventDefault();
+    }
+
+    function handleWheel(e) {
+      cancelAuto();
+    }
+
+    document.addEventListener("wheel", handleWheel);
+    document.addEventListener("touchstart", handleTouch, {passive: false, capture: true});
+    document.addEventListener("click", handleTouch, {passive: false, capture: true});
+    document.addEventListener("keydown", handleKeypress);
+    document.getElementById("im").addEventListener("load", newPageLoaded);
+    window.addEventListener("resize", newPageLoaded);
+
+  </script>
+
+</html>

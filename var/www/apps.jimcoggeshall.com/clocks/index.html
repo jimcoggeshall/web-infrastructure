@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Clock</title>
+    <link rel="icon" href="../favicon.ico" />
+    <body style="background-color:#000000; margin:0px; padding:0px">
+    <style>
+      * { 
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: rgba(255,255,255,0);
+      }
+      .inner-center {
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: normal;
+       	display: inline;
+        justify-content: center;
+        text-align: center;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90vw;
+        padding: 0vh 5vw 0vh 5vw;
+        margin: 0px;
+        border: 0px;
+      }
+      .outer-center {
+        color: white;
+        height: 100vh;
+        width: 100vw;
+      }
+      .clock {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum";
+        font-kerning: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="outer-center">
+      <div class="inner-center">
+        <p class="clock" id="thetime"></p>
+      </div>
+    </div>    
+    <script>
+      function clockSeconds() {
+        var ts = new Date();
+        document.getElementById("thetime").textContent = ts.toLocaleTimeString();
+      }
+      function clockMinutes() {
+        document.getElementById("thetime").style.fontSize = "20vw";
+        var ts = new Date();
+        var s = ts.toLocaleTimeString();
+        var sa = s.split(":");
+        var sas = sa[2].split(" ");
+        document.getElementById("thetime").textContent = sa[0] + ":" + sa[1] + " " + sas[1];
+      }
+      document.getElementById("thetime").style.fontSize = "15vw";
+      var mode = "s";
+      var iv = setInterval(clockSeconds, 1000);
+      function switchClock(e) {
+        e.preventDefault();
+        clearInterval(iv);
+        if (mode == "s") {
+          document.getElementById("thetime").style.fontSize = "20vw";
+          mode = "m";
+          clockMinutes();
+          iv = setInterval(clockMinutes, 1000);
+        } else if (mode == "m") {
+          document.getElementById("thetime").style.fontSize = "15vw";
+          mode = "s";
+          clockSeconds();
+          iv = setInterval(clockSeconds, 1000);
+        } else {
+          document.getElementById("thetime").textContent = "";
+        }
+      }
+      window.addEventListener("click", switchClock);
+      window.addEventListener("touchend", switchClock);
+    </script>
+  </body>
+
+</html>

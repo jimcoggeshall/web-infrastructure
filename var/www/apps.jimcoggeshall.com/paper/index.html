@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, height=device-height, initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Paper</title>
+    <link rel="icon" href="favicon.ico" />
+    <body style="background-color:#FFFFFF; margin:0px; padding:0px">
+    <style>
+      .center {
+        display: block;
+        height: auto;
+        width: 90vw;
+        margin-top: 5vh;
+        margin-bottom: 5vh;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      #right {
+        position: fixed;
+        display: none;
+        width: 10vw;
+        height: 80vh;
+        top: 10vh;
+        left: 85vw;
+        right: 5vw;
+        bottom: 10vh;
+        margin: 0px;
+        padding: 0px;
+        background-color: rgba(255, 255, 255, 0);
+        z-index: 2;
+        cursor: pointer;
+      }
+      #rightArrow {
+        position: absolute;
+        display: none;
+        top: 50%;
+        left: 50%;
+        font-size: 30vw;
+        line-height: 30vw;
+        color: black;
+        opacity: 0.3;
+        z-index: 3;
+        transform: translate(-50%, -50%);
+        -ms-transform: translate(-50%, -50%);
+      }
+      #left {
+        position: fixed;
+        display: none;
+        width: 10vw;
+        height: 80vh;
+        top: 10vh;
+        left: 5vw;
+        right: 85vw;
+        bottom: 10vh;
+        margin: 0px;
+        padding: 0px;
+        background-color: rgba(255, 255, 255, 0);
+        z-index: 2;
+        cursor: pointer;
+      }
+      #leftArrow {
+        position: absolute;
+        display: none;
+        top: 50%;
+        left: 50%;
+        font-size: 30vw;
+        line-height: 30vw;
+        color: black;
+        opacity: 0.3;
+        z-index: 3;
+        transform: translate(-50%, -50%);
+        -ms-transform: translate(-50%, -50%);
+      }
+      #rightArrow:hover {
+        opacity: 0.8;
+      }
+      #leftArrow:hover {
+        opacity: 0.8;
+      }
+      #overlay {
+        position: fixed;
+        display: none;
+        width: 30vw;
+        height: 10vw;
+        top: calc(50vh - 10vw);
+        left: 35vw;
+        right: 35vw;
+        bottom: calc(50vh - 10vw);
+        margin: 0px;
+        padding: 0px;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 2;
+        cursor: pointer;
+      }
+      #text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        font-size: 5vw;
+        color: white;
+        transform: translate(-50%, -50%);
+        -ms-transform: translate(-50%, -50%);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="overlay">
+      <div id="text">Loading...</div>
+    </div>
+    <div id="left">
+      <div id="leftArrow" href="#">&#10096;</div>
+    </div>
+    <div id="right">
+      <div id="rightArrow" href="#">&#10097;</div>
+    </div>
+    <img class="center" id="im">
+  </body>
+
+  <script src="paper/list.js"></script>
+  <script>
+
+    var navTimeout;
+    var pages = pagesOrig.slice(0, -1);
+
+    function newPageLoaded() {
+      document.getElementById("overlay").style.display = "none";
+      window.scrollTo(0, 0);
+    }
+
+    function newPage() {
+      document.getElementById("im").src = pages[0];
+      document.getElementById("overlay").style.display = "inline-block";
+    }
+
+    function nextImage() {
+      pages.push(pages.shift());
+      newPage();
+    }
+
+    function prevImage() {
+      pages.unshift(pages.pop());
+      newPage();
+    }
+
+    newPage();
+
+    function handleKeypress(e) {
+      console.log("handleKeypress");
+      if (e.defaultPrevented) {
+        return;
+      }
+      var k = e.key;
+      switch (k) {
+        case "Right":
+        case "ArrowRight":
+          nextImage();
+          break;
+        case "Left":
+        case "ArrowLeft":
+          prevImage();
+          break;
+        default:
+          break;
+      }
+      e.preventDefault();
+    }
+
+    document.addEventListener("keydown", handleKeypress);
+    document.getElementById("leftArrow").addEventListener("click", (e) => {
+      prevImage();
+      e.preventDefault();
+    }, false);
+    document.getElementById("left").addEventListener("click", (e) => {
+      prevImage();
+      e.preventDefault();
+    }, false);
+    document.getElementById("rightArrow").addEventListener("click", (e) => {
+      nextImage();
+      e.preventDefault();
+    }, false);
+    document.getElementById("right").addEventListener("click", (e) => {
+      nextImage();
+      e.preventDefault();
+    }, false);
+
+    function detectSwipe(handleSwipe) {
+      var navdir = "None";
+      var swipedir = "None";
+      var startX, startY, distX, distY, elapsedTime, startTime;
+      var minDistance = 50;
+      var maxDistance = 100;
+      var allowedTime = 150;
+    
+      document.getElementById("leftArrow").addEventListener("touchend", (e) => {
+        navdir = "Left";
+        e.preventDefault();
+      }, false);
+      document.getElementById("left").addEventListener("touchend", (e) => {
+        navdir = "Left";
+        e.preventDefault();
+      }, false);
+      document.getElementById("rightArrow").addEventListener("touchend", (e) => {
+        navdir = "Right";
+        e.preventDefault();
+      }, false);
+      document.getElementById("right").addEventListener("touchend", (e) => {
+        navdir = "Right";
+        e.preventDefault();
+      }, false);
+
+      window.addEventListener("touchstart", (e) => {
+        var touchobj = e.changedTouches[0];
+        navdir = "None";
+        swipedir = "None";
+        dist = 0;
+        startX = touchobj.pageX;
+        startY = touchobj.pageY;
+        startTime = new Date().getTime();
+        e.preventDefault();
+      }, false);
+
+      window.addEventListener("touchend", (e) => {
+        var touchobj = e.changedTouches[0];
+        distX = touchobj.pageX - startX;
+        distY = touchobj.pageY - startY;
+        elapsedTime = new Date().getTime() - startTime;
+        if (elapsedTime <= allowedTime) {
+          if (Math.abs(distX) >= minDistance && Math.abs(distY) <= maxDistance) {
+            swipedir = (distX < 0) ? "Left" : "Right";
+          }
+          else if (Math.abs(distY) >= minDistance && Math.abs(distX) <= maxDistance) {
+            swipedir = (distY < 0) ? "Up" : "Down";
+          } else {
+            swipedir = "Tap";
+            if (navdir == "Right") {
+              swipedir = "Left";
+            }
+            else if (navdir == "Left") {
+              swipedir = "Right";
+            }
+          }
+        }
+        handleSwipe(swipedir);
+        e.preventDefault();
+      }, false);
+      
+    }
+
+
+    function handleTap(e) {
+      clearTimeout(navTimeout);
+      document.getElementById("left").style.display = "block";
+      document.getElementById("leftArrow").style.display = "block";
+      document.getElementById("right").style.display = "block";
+      document.getElementById("rightArrow").style.display = "block";
+      navTimeout = setTimeout(() => {
+        document.getElementById("left").style.display = "none";
+        document.getElementById("leftArrow").style.display = "none";
+        document.getElementById("right").style.display = "none";
+        document.getElementById("rightArrow").style.display = "none";
+      }, 2000);
+      e.preventDefault();
+    }
+
+    window.addEventListener("scroll", (e) => {
+      document.getElementById("left").style.display = "none";
+      document.getElementById("leftArrow").style.display = "none";
+      document.getElementById("right").style.display = "none";
+      document.getElementById("rightArrow").style.display = "none";
+    });
+
+    detectSwipe((swipedir) => {
+      switch (swipedir) {
+        case "Right":
+          prevImage();
+          break;
+        case "Left":
+          nextImage();
+          break;
+        case "Up":
+        case "Down":
+        case "None":
+          break;
+        case "Tap":
+          handleTap();
+          break;
+        default:
+          break;
+      }
+    });
+
+    document.getElementById("im").addEventListener("load", newPageLoaded);
+    
+    window.addEventListener("mousemove", handleTap);
+
+  </script>
+
+</html>
