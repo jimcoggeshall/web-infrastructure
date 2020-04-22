@@ -1,6 +1,6 @@
 chat.jimcoggeshall.com {
     header / {
-        Strict-Transport-Security "max-age=31536000;"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-XSS-Protection "1; mode=block"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
@@ -16,9 +16,10 @@ chat.jimcoggeshall.com {
 }
 
 jimcoggeshall.com, www.jimcoggeshall.com, cloud.jimcoggeshall.com {
-    root /var/www/jimcoggeshall.com
+    root /var/www/bk.jimcoggeshall.com
+#    git github.com:jimcoggeshall/jimcoggeshall.com /
     header / {
-        Strict-Transport-Security "max-age=31536000;"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-XSS-Protection "1; mode=block"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
@@ -33,7 +34,7 @@ apps.jimcoggeshall.com {
     root /var/www/apps.jimcoggeshall.com
     minify /
     header / {
-        Strict-Transport-Security "max-age=31536000;"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-XSS-Protection "1; mode=block"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
@@ -50,7 +51,7 @@ broadcast.jimcoggeshall.com {
     }
     root /var/www/broadcast.jimcoggeshall.com
     header / {
-        Strict-Transport-Security "max-age=31536000;"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-XSS-Protection "1; mode=block"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
@@ -70,7 +71,7 @@ broadcast.jimcoggeshall.com {
 
 status.jimcoggeshall.com {
     header / {
-        Strict-Transport-Security "max-age=31536000;"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-XSS-Protection "1; mode=block"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
@@ -86,7 +87,7 @@ status.jimcoggeshall.com {
     }
     login {
         success_url /
-        simple jim=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        simple jim=XXXXXXXXXXXXXXXXXXXXXX
     }
     root /var/www/status.jimcoggeshall.com
     browse /browse
@@ -95,5 +96,9 @@ status.jimcoggeshall.com {
 
 
 lab.jimcoggeshall.com {
+    header / {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        -Server
+    }
     root /var/www/lab.jimcoggeshall.com
 }
