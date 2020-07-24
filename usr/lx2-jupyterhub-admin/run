@@ -1,0 +1,7 @@
+#!/bin/sh
+
+for u in user; do
+    chown -R $u:jupyterhub /work/$u
+    chmod -R 755 /work/$u
+done
+/opt/conda/bin/jupyterhub -f /home/jovyan/jupyterhub_config.py

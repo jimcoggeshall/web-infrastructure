@@ -1,0 +1,1 @@
+FROM beakerx/beakerx:latest
