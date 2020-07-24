@@ -15,7 +15,7 @@ class MessageHandler(socketserver.BaseRequestHandler):
             for m in p:
                 self.request.sendall(
                     bytes(
-                        json.dumps(m, separators=(":", ",")) + "\n", 
+                        json.dumps(m, separators=(",", ":")) + "\n", 
                         "utf-8"
                     )
                 )
