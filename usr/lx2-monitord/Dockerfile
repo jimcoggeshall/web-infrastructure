@@ -41,6 +41,6 @@ RUN pip install nest_asyncio \
 ipwhois \
 py-radix \
 websockets \
-aiofile
+tldextract
 
-ADD monitor.py ip2asn-v4.tsv ip-protocol-numbers.json ports.csv lx2-hosts /home/jovyan/work/
+ADD monitor.py ip2asn-v4.tsv ip-protocol-numbers.json ports.csv /home/jovyan/work/
