@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-fit=cover, width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta http-equiv="refresh" content="3600">
+    <title>Monitor</title>
+    <link rel="icon" href="favicon.ico" />
+    <body style="background-color:#000000; margin:0px; padding:0px">
+    <style>
+     .inner-center {
+        font-family: Consolas, ui-monospace, monospace;
+        font-weight: normal;
+       	display: inline;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 98vw;
+        padding: 0vh 1vw 0vh 1vw;
+        margin: 0px;
+        border: 0px;
+      }
+      .outer-center {
+        color: white;
+        height: 100vh;
+        width: 100vw;
+        justify-content: center;
+        text-align: center;
+      }
+      table.dataframe {
+        align-items: center;
+        justify-content: center;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      tr, th, td {
+        text-align: left;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="outer-center" id="outer">
+      <div class="inner-center" id="inner">
+      </div>
+    </div>
+    <script>
+
+      var ws = new WebSocket("wss://monitor.admin.jimcoggeshall.com/ws");
+      ws.onmessage = function(event) {
+        var m = event.data;
+	render(m);
+      };
+      ws.onclose = ev => setTimeout(() => location.reload(true), 5000);
+      ws.onerror = er => setTimeout(() => location.reload(true), 30000);
+
+      function render(m) {
+        document.getElementById("inner").style.fontSize = "calc(1em + 1vw)";
+        document.getElementById("inner").style.lineHeight = "120%";
+        document.getElementById("inner").innerHTML = m;
+        fitVerticalAndHorizontal(m);
+      }
+    
+      function fitVerticalAndHorizontal(m) {
+        fitHorizontal(m);
+        fitTable(m);
+      }
+
+      function fitTable(m) {
+        while (document.getElementById("inner").scrollHeight > window.innerHeight) {
+          document.getElementById("monitor-table").deleteRow(-1);
+          fitHorizontal(document.getElementById("inner").innerHTML);
+        }
+      }
+
+      function fitHorizontal(m) {
+        while (document.getElementById("inner").scrollWidth > window.innerWidth) {
+          let style = window.getComputedStyle(document.getElementById("inner"), null);
+          let cfs = parseFloat(style.getPropertyValue("font-size").replace("px", ""));
+          document.getElementById("inner").style.fontSize = 0.95*cfs + "px";
+          document.getElementById("inner").innerHTML = m;
+        }
+      }
+
+      function fixLayout() {
+        render(document.getElementById("inner").innerHTML);
+      }
+      window.addEventListener("resize", fixLayout);
+
+    </script>
+  </body>
+
+</html>
