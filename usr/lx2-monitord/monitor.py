@@ -25,10 +25,6 @@ import queue
 import radix
 import tldextract
 
-import IPython.display
-from IPython.display import HTML
-import ipywidgets as widgets
-
 import pyspark
 from pyspark import SparkContext
 from pyspark.streaming import StreamingContext
@@ -560,7 +556,7 @@ def update_client_addr(part, client_addr_state):
             sum([
                 vv for (kk, vv) in client_addr_state[v].items()
             ]) for v in [
-                "weight_30min_dns_query_name",
+                "weight_5min_dns_query_name",
                 "weight_30min_dns_query_sld",
                 "weight_5min_server_pfx",
                 "weight_5min_server_orgname",
@@ -578,11 +574,11 @@ def map_to_client_addr_tuple(x):
 
 
 def pad_right_to_length(length, value):
-    return value.ljust(length + 1, " ")[:length]
+    return str(value.ljust(length + 1, " ")[:length])
  
 
 def pad_left_to_length(length, value):
-    reversed_value = value[::-1]
+    reversed_value = str(value[::-1])
     reversed_trimmed = pad_right_to_length(length, reversed_value)
     return reversed_trimmed[::-1]
 
@@ -596,10 +592,12 @@ def value_truncate(name, value):
         "weight_5min_server_pfx": partial(pad_right_to_length, 40),
         "weight_5min_server_addr": partial(pad_right_to_length, 20),
         "weight_5min_server_orgname": partial(pad_right_to_length, 50),
-        "weight_5min_server_port_desc": partial(pad_right_to_length, 30)
+        "weight_5min_server_port_desc": partial(pad_right_to_length, 30),
+        "client_hostname": partial(pad_right_to_length, 27),
+        "score": lambda x: x
     }
-    tr_op = tr_op_names.get(name, lambda x: x)
-    return tr_op(str(value))
+    tr_op = tr_op_names.get(name, str)
+    return tr_op(value)
     
 
 
@@ -608,8 +606,9 @@ def format_record(x):
     for (k, v) in x.items():
         if k.startswith("weight"):
             varlist = [(d, v[d]) for d in sorted(v, key=v.get, reverse=True)]
-            varlist_trunc = varlist[0:10]
-            varlist_overflow = varlist[10:]
+            num_overflow_items = max(int((len(varlist) - 10)/10), 10)
+            varlist_trunc = varlist[0:num_overflow_items]
+            varlist_overflow = varlist[num_overflow_items:]
             overflow_sum_weight = sum([d[1] for d in varlist_overflow])
             overflow_num = len(varlist_overflow)
             if overflow_num == 1:
@@ -624,7 +623,7 @@ def format_record(x):
             )
             out[k] = out_temp
         else:
-            out[k] = v
+            out[k] = value_truncate(k, v)
     this_timestamp = datetime.datetime.fromisoformat(out["client_recent_update"]).timestamp()
     out["client_recent_update"] = float(this_timestamp)
     return out
@@ -634,18 +633,16 @@ def format_client_hostname_dataframe(df):
     if "client_hostname" not in df.columns.values:
         return datetime.datetime.now().ctime() + "<br>" + "Waiting for data"
     ts_now = datetime.datetime.now().timestamp()
-    ts_5min_ago = ts_now - 300
-    df = df[df["client_recent_update"] > ts_5min_ago]
     df.set_index("client_hostname", inplace=True)
     df.sort_values(by="score", inplace=True, ascending=False)
     del df["weight_5min_record_type"]
     del df["weight_5min_dns_query_name"]
-    del df["weight_5min_dns_query_sld"]
+    del df["weight_30min_dns_query_name"]
+    del df["weight_30min_dns_query_sld"]
     del df["client_recent_update"]
     del df["weight_5min_server_addr"]
     del df["weight_5min_server_port"]
-    del df["score"]
-    return df.head(10).to_html(
+    return df.head(100).to_html(
         header=False,
         justify="left", 
         escape=False, 
