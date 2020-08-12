@@ -38,11 +38,10 @@ import pyspark.sql.functions as func
 
             
 vars_in_score = [
-    "weight_20min_dns_query_name",
     "weight_20min_dns_query_sld_by_query_sld_fraction",
+    "weight_5min_dns_query_sld_prop_by_query_sld_fraction",
     "weight_5min_dns_query_sld_by_query_sld_fraction",
     "weight_5min_server_pfx",
-    "weight_5min_server_addr",
     "weight_5min_server_orgname_by_asn_fraction",
     "weight_5min_server_port_desc"
 ]
@@ -242,9 +241,13 @@ class PacketHandler(socketserver.BaseRequestHandler):
         return x
 
 def serve_packets():
-    with socketserver.TCPServer(("0.0.0.0", 11111), PacketHandler) as server:
-        server.allow_reuse_address = True
-        server.serve_forever()
+    while True:
+        try:
+            with socketserver.TCPServer(("0.0.0.0", 11111), PacketHandler) as server:
+                server.allow_reuse_address = True
+                server.serve_forever()
+        except:
+            time.sleep(10)
 
 
 def error_record(x):
@@ -460,16 +463,39 @@ def filter_record(x):
     return x["record_type"] in set(["hostname_map", "cflow", "dns"])
 
 
-def update_univeral_state(part, universal_state):
+def update_universal_state(part, universal_state):
+
+    now = datetime.datetime.now()
+    if universal_state != None:
+        recent_cache = datetime.datetime.fromisoformat(universal_state["recent_cache"])
+        delta_seconds_recent = (now - recent_cache).total_seconds()
+        if delta_seconds_recent > 15:
+            with open("/var/monitord/storage/universal_state.json", "w") as f:
+                del universal_state["records"]
+                json.dump(universal_state, f)
+                universal_state["recent_cache"] = now.isoformat()
 
     if universal_state is None:
-        universal_state = {
-            "dns_query_name_counter": collections.Counter(),
-            "dns_query_sld_counter": collections.Counter(),
-            "server_addr_counter": collections.Counter(),
-            "server_asn_counter": collections.Counter(),
-            "records": []
-        }
+        try:
+            with open("/var/monitord/storage/universal_state.json", "r") as f:
+                s = json.load(f)
+            universal_state = {
+                "recent_cache": now.isoformat(),
+                "dns_query_name_counter": collections.Counter(s["dns_query_name_counter"]),
+                "dns_query_sld_counter": collections.Counter(s["dns_query_sld_counter"]),
+                "server_addr_counter": collections.Counter(s["server_addr_counter"]),
+                "server_asn_counter": collections.Counter(s["server_asn_counter"]),
+                "records": []
+            }
+        except:
+            universal_state = {
+                "recent_cache": now.isoformat(),
+                "dns_query_name_counter": collections.Counter(),
+                "dns_query_sld_counter": collections.Counter(),
+                "server_addr_counter": collections.Counter(),
+                "server_asn_counter": collections.Counter(),
+                "records": []
+            }
 
     this_part_records = []
     dns_query_name_counter = universal_state["dns_query_name_counter"]
@@ -499,10 +525,10 @@ def update_univeral_state(part, universal_state):
                 x["payload"]["cflow"]["server_asn_fraction"] = server_asn_counter[this_server_asn]/sum(server_asn_counter.values())
         this_part_records.append(x)
     
-    universal_state["dns_query_name_counter"] = collections.Counter(dns_query_name_counter.most_common(1000))
-    universal_state["dns_query_sld_counter"] = collections.Counter(dns_query_sld_counter.most_common(500))
-    universal_state["server_addr_counter"] = collections.Counter(server_addr_counter.most_common(5000))
-    universal_state["server_asn_counter"] = collections.Counter(server_asn_counter.most_common(500))
+    universal_state["dns_query_name_counter"] = collections.Counter(dict(dns_query_name_counter.most_common(100000)))
+    universal_state["dns_query_sld_counter"] = collections.Counter(dict(dns_query_sld_counter.most_common(10000)))
+    universal_state["server_addr_counter"] = collections.Counter(dict(server_addr_counter.most_common(100000)))
+    universal_state["server_asn_counter"] = collections.Counter(dict(server_asn_counter.most_common(5000)))
     universal_state["records"] = this_part_records
 
     return universal_state
@@ -512,8 +538,18 @@ def update_client_addr(part, client_addr_state):
     
     now = datetime.datetime.now()
 
+    try:
+        client_addr_value = part[0]
+        if type(client_addr_value) != str:
+            a = client_addr_value[0]
+            client_addr_value = a
+    except:
+        client_addr_value = "empty"
+
     client_addr_event_weights = {
+        "weight_1min_record_type": 20.0*(1/(1*60)),
         "weight_5min_record_type": 50.0*(1/(5*60)),
+        "weight_20min_record_type": 100.0*(1/(20*60)),
         "weight_20min_dns_query_name": 100.0*(1/(20*60)),
         "weight_5min_dns_query_name": 50.0*(1/(5*60)),
         "weight_20min_dns_query_sld": 100.0*(1/(20*60)),
@@ -530,9 +566,18 @@ def update_client_addr(part, client_addr_state):
     
     if client_addr_state != None:
         recent_update = datetime.datetime.fromisoformat(client_addr_state["client_recent_update"])
+        recent_cache = datetime.datetime.fromisoformat(client_addr_state["client_recent_cache"])
+        delta_seconds_cache = (now - recent_cache).total_seconds()
+        if delta_seconds_cache > 60:
+            with open("/var/monitord/storage/client_addr." + client_addr_value + ".json", "w") as f:
+                json.dump(client_addr_state, f)
+                client_addr_state["client_recent_cache"] = now.isoformat()
         delta_seconds_recent = (now - recent_update).total_seconds()
         for (k, v) in client_addr_state.items():
             event_weight = client_addr_event_weights.get(k, 0)
+            if k.startswith("weight_1min"):
+                for (n, c) in v.items():
+                    client_addr_state[k][n] = c*np.exp(-delta_seconds_recent/(1*60))
             if k.startswith("weight_5min"):
                 for (n, c) in v.items():
                     client_addr_state[k][n] = c*np.exp(-delta_seconds_recent/(5*60))
@@ -541,108 +586,203 @@ def update_client_addr(part, client_addr_state):
                     client_addr_state[k][n] = c*np.exp(-delta_seconds_recent/(20*60))
                     
     if client_addr_state is None:
-        client_addr_state = {
-            "client_recent_update": now.isoformat(),
-            "client_hostname": "",
-            "score": 0,
-            "weight_5min_record_type": {},
-            "weight_20min_dns_query_name": {},
-            "weight_5min_dns_query_name": {},
-            "weight_20min_dns_query_sld": {},
-            "weight_5min_dns_query_sld": {},
-            "weight_20min_dns_query_sld_by_query_sld_fraction": {},
-            "weight_5min_dns_query_sld_by_query_sld_fraction": {},
-            "weight_5min_server_pfx": {},
-            "weight_5min_server_addr": {},
-            "weight_5min_server_port": {},
-            "weight_5min_server_orgname": {},
-            "weight_5min_server_orgname_by_asn_fraction": {},
-            "weight_5min_server_port_desc": {}
-        }    
+        try:
+            with open("/var/monitord/storage/client_addr." + client_addr_value + ".json", "r") as f:
+                client_addr_state = json.load(f)
+        except:
+            client_addr_state = {
+                "client_recent_update": now.isoformat(),
+                "client_recent_cache": now.isoformat(),
+                "client_hostname": "",
+                "score": 0,
+                "weight_1min_record_type": {},
+                "weight_5min_record_type": {},
+                "weight_20min_record_type": {},
+                "weight_20min_dns_query_name": {},
+                "weight_5min_dns_query_name": {},
+                "weight_20min_dns_query_sld": {},
+                "weight_5min_dns_query_sld": {},
+                "weight_20min_dns_query_sld_by_query_sld_fraction": {},
+                "weight_5min_dns_query_sld_by_query_sld_fraction": {},
+                "weight_5min_server_pfx": {},
+                "weight_5min_server_addr": {},
+                "weight_5min_server_port": {},
+                "weight_5min_server_orgname": {},
+                "weight_5min_server_orgname_by_asn_fraction": {},
+                "weight_5min_server_port_desc": {},
+                "weight_20min_dns_query_name_prop": {},
+                "weight_5min_dns_query_name_prop": {},
+                "weight_20min_dns_query_sld_prop": {},
+                "weight_5min_dns_query_sld_prop": {},
+                "weight_20min_dns_query_sld_prop_by_query_sld_fraction": {},
+                "weight_5min_dns_query_sld_prop_by_query_sld_fraction": {},
+                "weight_5min_server_pfx_prop": {},
+                "weight_5min_server_addr_prop": {},
+                "weight_5min_server_port_prop": {},
+                "weight_5min_server_orgname_prop": {},
+                "weight_5min_server_orgname_prop_by_asn_fraction": {},
+                "weight_5min_server_port_desc_prop": {}
+            }    
         
-    for x in part:
+    for (_, x) in part:
             
         this_record_type = x["record_type"]
+        weight_1min_this_record_type = client_addr_state["weight_1min_record_type"]\
+            .get(this_record_type, 0) + 1
         weight_5min_this_record_type = client_addr_state["weight_5min_record_type"]\
             .get(this_record_type, 0) + 1
+        weight_20min_this_record_type = client_addr_state["weight_20min_record_type"]\
+            .get(this_record_type, 0) + 1
+        client_addr_state["weight_1min_record_type"][this_record_type] = weight_1min_this_record_type
         client_addr_state["weight_5min_record_type"][this_record_type] = weight_5min_this_record_type
+        client_addr_state["weight_20min_record_type"][this_record_type] = weight_20min_this_record_type
+
         if x["record_type"] == "hostname_map":
             client_addr_state["client_hostname"] = x["payload"]["hostname_map"]["client_hostname"]
+
         elif x["record_type"] == "dns":
+
             this_dns_query_name = x["payload"]["dns"]["dns_query_name"]
+            this_dns_query_sld_fraction = x["payload"]["dns"]["dns_query_sld_fraction"]
+            this_dns_query_sld = x["payload"]["dns"]["dns_query_sld"]
+
             weight_5min_this_dns_query_name = client_addr_state["weight_5min_dns_query_name"]\
                 .get(this_dns_query_name, 0) + client_addr_event_weights.get("weight_5min_dns_query_name", 0)
             client_addr_state["weight_5min_dns_query_name"][this_dns_query_name] = weight_5min_this_dns_query_name
-            this_dns_query_name = x["payload"]["dns"]["dns_query_name"]
+
+            weight_5min_this_dns_query_name_prop = client_addr_state["weight_5min_dns_query_name_prop"]\
+                .get(this_dns_query_name, 0) + client_addr_event_weights.get("weight_5min_dns_query_name", 0)/weight_5min_this_record_type
+            client_addr_state["weight_5min_dns_query_name_prop"][this_dns_query_name] = weight_5min_this_dns_query_name_prop
+
             weight_20min_this_dns_query_name = client_addr_state["weight_20min_dns_query_name"]\
                 .get(this_dns_query_name, 0) + client_addr_event_weights.get("weight_20min_dns_query_name", 0)
             client_addr_state["weight_20min_dns_query_name"][this_dns_query_name] = weight_20min_this_dns_query_name
-            this_dns_query_sld_fraction = x["payload"]["dns"]["dns_query_sld_fraction"]
-            this_dns_query_sld = x["payload"]["dns"]["dns_query_sld"]
+            
+            weight_20min_this_dns_query_name_prop = client_addr_state["weight_20min_dns_query_name_prop"]\
+                .get(this_dns_query_name, 0) + client_addr_event_weights.get("weight_20min_dns_query_name", 0)/weight_1min_this_record_type
+            client_addr_state["weight_20min_dns_query_name_prop"][this_dns_query_name] = weight_20min_this_dns_query_name_prop
+
             weight_5min_this_dns_query_sld = client_addr_state["weight_5min_dns_query_sld"]\
                 .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_5min_dns_query_sld", 0)
             client_addr_state["weight_5min_dns_query_sld"][this_dns_query_sld] = weight_5min_this_dns_query_sld
+            
+            weight_5min_this_dns_query_sld_prop = client_addr_state["weight_5min_dns_query_sld_prop"]\
+                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_5min_dns_query_sld", 0)/weight_5min_this_record_type
+            client_addr_state["weight_5min_dns_query_sld_prop"][this_dns_query_sld] = weight_5min_this_dns_query_sld_prop
+
             weight_5min_this_dns_query_sld_by_query_sld_fraction = client_addr_state["weight_5min_dns_query_sld_by_query_sld_fraction"]\
-                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_5min_dns_query_sld_by_query_sld_fraction", 0)/this_dns_query_sld_fraction
+                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_5min_dns_query_sld_by_query_sld_fraction", 0)/max(this_dns_query_sld_fraction, 0.01)
             client_addr_state["weight_5min_dns_query_sld_by_query_sld_fraction"][this_dns_query_sld] = weight_5min_this_dns_query_sld_by_query_sld_fraction
+            weight_5min_this_dns_query_sld_prop_by_query_sld_fraction = client_addr_state["weight_5min_dns_query_sld_prop_by_query_sld_fraction"]\
+                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_5min_dns_query_sld_by_query_sld_fraction", 0)/(weight_5min_this_record_type*max(this_dns_query_sld_fraction, 0.01))
+            client_addr_state["weight_5min_dns_query_sld_prop_by_query_sld_fraction"][this_dns_query_sld] = weight_5min_this_dns_query_sld_prop_by_query_sld_fraction
+
             weight_20min_this_dns_query_sld = client_addr_state["weight_20min_dns_query_sld"]\
                 .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_20min_dns_query_sld", 0)
             client_addr_state["weight_20min_dns_query_sld"][this_dns_query_sld] = weight_20min_this_dns_query_sld
+            
+            weight_20min_this_dns_query_sld_prop = client_addr_state["weight_20min_dns_query_sld_prop"]\
+                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_20min_dns_query_sld", 0)/weight_20min_this_record_type
+            client_addr_state["weight_20min_dns_query_sld_prop"][this_dns_query_sld] = weight_20min_this_dns_query_sld_prop
+
             weight_20min_this_dns_query_sld_by_query_sld_fraction = client_addr_state["weight_20min_dns_query_sld_by_query_sld_fraction"]\
-                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_20min_dns_query_sld_by_query_sld_fraction", 0)/this_dns_query_sld_fraction
+                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_20min_dns_query_sld_by_query_sld_fraction", 0)/max(this_dns_query_sld_fraction, 0.01)
             client_addr_state["weight_20min_dns_query_sld_by_query_sld_fraction"][this_dns_query_sld] = weight_20min_this_dns_query_sld_by_query_sld_fraction
+            
+            weight_20min_this_dns_query_sld_prop_by_query_sld_fraction = client_addr_state["weight_20min_dns_query_sld_prop_by_query_sld_fraction"]\
+                .get(this_dns_query_sld, 0) + client_addr_event_weights.get("weight_20min_dns_query_sld_by_query_sld_fraction", 0)/(weight_20min_this_record_type*max(this_dns_query_sld_fraction, 0.01))
+            client_addr_state["weight_20min_dns_query_sld_prop_by_query_sld_fraction"][this_dns_query_sld] = weight_20min_this_dns_query_sld_prop_by_query_sld_fraction
+
             client_addr_state["client_recent_update"] = datetime.datetime.now().isoformat()
+
         elif x["record_type"] == "cflow":
+
             if x["payload"]["cflow"]["server_orgname"] != "Not routed":
+
                 this_server_addr = x["payload"]["cflow"]["server_addr"]
+
                 weight_5min_this_server_addr = client_addr_state["weight_5min_server_addr"]\
                     .get(this_server_addr, 0) + client_addr_event_weights.get("weight_5min_server_addr", 0)
                 client_addr_state["weight_5min_server_addr"][this_server_addr] = weight_5min_this_server_addr
+                
+                weight_5min_this_server_addr_prop = client_addr_state["weight_5min_server_addr_prop"]\
+                    .get(this_server_addr, 0) + client_addr_event_weights.get("weight_5min_server_addr", 0)/weight_5min_this_record_type
+                client_addr_state["weight_5min_server_addr_prop"][this_server_addr] = weight_5min_this_server_addr_prop
+
                 this_server_asn_fraction = x["payload"]["cflow"]["server_asn_fraction"]
                 this_server_orgname = x["payload"]["cflow"]["server_orgname"]
+
                 weight_5min_this_server_orgname = client_addr_state["weight_5min_server_orgname"]\
                     .get(this_server_orgname, 0) + client_addr_event_weights.get("weight_5min_server_orgname", 0)
-                client_addr_state["weight_5min_server_orgname"][this_server_orgname] = weight_5min_this_server_orgname        
+                client_addr_state["weight_5min_server_orgname"][this_server_orgname] = weight_5min_this_server_orgname
+                
+                weight_5min_this_server_orgname_prop = client_addr_state["weight_5min_server_orgname_prop"]\
+                    .get(this_server_orgname, 0) + client_addr_event_weights.get("weight_5min_server_orgname", 0)/weight_5min_this_record_type
+                client_addr_state["weight_5min_server_orgname_prop"][this_server_orgname] = weight_5min_this_server_orgname_prop
+
                 weight_5min_this_server_orgname_by_asn_fraction = client_addr_state["weight_5min_server_orgname_by_asn_fraction"]\
-                    .get(this_server_orgname, 0) + client_addr_event_weights.get("weight_5min_server_orgname", 0)/this_server_asn_fraction
+                    .get(this_server_orgname, 0) + client_addr_event_weights.get("weight_5min_server_orgname", 0)/max(this_server_asn_fraction, 0.01)
                 client_addr_state["weight_5min_server_orgname_by_asn_fraction"][this_server_orgname] = weight_5min_this_server_orgname_by_asn_fraction
+                
+                weight_5min_this_server_orgname_prop_by_asn_fraction = client_addr_state["weight_5min_server_orgname_prop_by_asn_fraction"]\
+                    .get(this_server_orgname, 0) + client_addr_event_weights.get("weight_5min_server_orgname", 0)/(weight_5min_this_record_type*max(this_server_asn_fraction, 0.01))
+                client_addr_state["weight_5min_server_orgname_prop_by_asn_fraction"][this_server_orgname] = weight_5min_this_server_orgname_prop_by_asn_fraction
+
                 this_server_port = x["payload"]["cflow"]["server_port"]
+
                 weight_5min_this_server_port = client_addr_state["weight_5min_server_port"]\
                     .get(this_server_port, 0) + client_addr_event_weights.get("weight_5min_server_port", 0)
                 client_addr_state["weight_5min_server_port"][this_server_port] = weight_5min_this_server_port
+                
+                weight_5min_this_server_port_prop = client_addr_state["weight_5min_server_port_prop"]\
+                    .get(this_server_port, 0) + client_addr_event_weights.get("weight_5min_server_port", 0)/weight_5min_this_record_type
+                client_addr_state["weight_5min_server_port_prop"][this_server_port] = weight_5min_this_server_port_prop
+
                 this_server_port_desc = x["payload"]["cflow"]["server_port_desc"]
+
                 weight_5min_this_server_port_desc = client_addr_state["weight_5min_server_port_desc"]\
                     .get(this_server_port_desc, 0) + client_addr_event_weights.get("weight_5min_server_port_desc", 0)
                 client_addr_state["weight_5min_server_port_desc"][this_server_port_desc] = weight_5min_this_server_port_desc
+                
+                weight_5min_this_server_port_desc_prop = client_addr_state["weight_5min_server_port_desc_prop"]\
+                    .get(this_server_port_desc, 0) + client_addr_event_weights.get("weight_5min_server_port_desc", 0)/weight_5min_this_record_type
+                client_addr_state["weight_5min_server_port_desc_prop"][this_server_port_desc] = weight_5min_this_server_port_desc_prop
+
                 this_server_pfx = x["payload"]["cflow"]["server_pfx"] + " (" + this_server_orgname + ")"
+
                 weight_5min_this_server_pfx = client_addr_state["weight_5min_server_pfx"]\
                     .get(this_server_pfx, 0) + client_addr_event_weights.get("weight_5min_server_pfx", 0)
                 client_addr_state["weight_5min_server_pfx"][this_server_pfx] = weight_5min_this_server_pfx
+                
+                weight_5min_this_server_pfx_prop = client_addr_state["weight_5min_server_pfx_prop"]\
+                    .get(this_server_pfx, 0) + client_addr_event_weights.get("weight_5min_server_pfx", 0)/weight_5min_this_record_type
+                client_addr_state["weight_5min_server_pfx_prop"][this_server_pfx] = weight_5min_this_server_pfx_prop
+
             client_addr_state["client_recent_update"] = datetime.datetime.now().isoformat()
 
     for (k, v) in client_addr_state.items():
         if k.startswith("weight"):
             keys_to_delete = []
             for (n, c) in v.items():
-                if c < 0.01:
+                if c < 0.2:
                     keys_to_delete.append(n)
             for m in keys_to_delete:
                 del v[m]
 
-    client_addr_state["score"] = int(min(sum(
+    client_addr_state["score"] = int(max(min(sum(
         [
             sum([
-                min(vv, 2000/len(vars_in_score)) for (kk, vv) in client_addr_state[v].items()
+                min(vv, 500/len(vars_in_score)) for (kk, vv) in client_addr_state[v].items()
             ]) for v in vars_in_score
         ]
-    ), 999))
+    ), 999), 1))
 
     return client_addr_state
         
     
 def map_to_client_addr_tuple(x):
     record_type = x["record_type"]
-    return (x["payload"][record_type]["client_addr"], x)
+    return (x["payload"][record_type]["client_addr"], (x["payload"][record_type]["client_addr"], x))
 
 
 def pad_right_to_length(length, value):
@@ -658,6 +798,7 @@ def pad_left_to_length(length, value):
 
 
 def value_truncate(name, value):
+    name = name.replace("_prop_", "_")
     tr_op_names = {
         "weight_20min_dns_query_name": partial(pad_left_to_length, 45),
         "weight_5min_dns_query_name": partial(pad_left_to_length, 45),
@@ -681,7 +822,7 @@ def value_truncate(name, value):
 def format_record(x):
     out = {}
     num_to_show = max([
-        min(max(int((len(v)/4)), 10), 25) for (k, v) in x.items()
+        min(max(int((len(v)/4)), 10), 10) for (k, v) in x.items()
         if k in vars_in_score
     ])
     for (k, v) in x.items():
@@ -726,17 +867,15 @@ def format_client_hostname_dataframe(df):
     df.set_index("client_hostname", inplace=True)
     df.sort_values(by="score", inplace=True, ascending=False)
     df["score"].astype(str, copy=False)
-    del df["weight_5min_record_type"]
-    del df["weight_5min_dns_query_name"]
-    del df["weight_20min_dns_query_name"]
-    del df["weight_5min_dns_query_sld"]
-    del df["weight_20min_dns_query_sld"]
-    del df["weight_5min_dns_query_sld_by_query_sld_fraction"]
-    del df["client_recent_update"]
-    del df["weight_5min_server_addr"]
-    del df["weight_5min_server_port"]
-    del df["weight_5min_server_pfx"]
-    del df["weight_5min_server_orgname"]
+    for c in df.columns.values:
+        if c not in [
+            "score", 
+            "client_hostname", 
+            "weight_5min_dns_query_sld_by_query_sld_fraction", 
+            "weight_5min_server_orgname_by_asn_fraction", 
+            "weight_5min_server_port_desc"
+        ]:
+            del df[c]
     return df.to_html(
         header=False,
         justify="left", 
@@ -760,7 +899,7 @@ def write_dataframe_to_socket(x):
 
 def main():
         
-    thread_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    thread_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     background_event_loop = asyncio.new_event_loop()
 
     record_handle = background_event_loop.run_in_executor(
@@ -777,13 +916,13 @@ def main():
 
     sc = spark.sparkContext
     ssc = StreamingContext(sc, 1)
-    ssc.checkpoint("/tmp/streamsocket")
+    ssc.checkpoint("/var/monitord/streamsocket")
 
     packets = ssc.socketTextStream("127.0.0.1", 11111)\
         .flatMap(parse_record)\
         .filter(filter_record)\
         .map(lambda x: ("", x))\
-        .updateStateByKey(update_univeral_state)\
+        .updateStateByKey(update_universal_state)\
         .flatMap(lambda x: x[1]["records"])
 
     packets_client_addr = packets.map(map_to_client_addr_tuple)\
