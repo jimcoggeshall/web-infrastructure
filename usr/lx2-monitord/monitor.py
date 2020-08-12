@@ -43,7 +43,7 @@ vars_in_score = [
     "weight_5min_dns_query_sld_by_query_sld_fraction",
     "weight_5min_server_pfx",
     "weight_5min_server_orgname_by_asn_fraction",
-    "weight_5min_server_port_desc"
+    "weight_20min_server_port_desc"
 ]
 show_weights = False
 
@@ -798,7 +798,7 @@ def pad_left_to_length(length, value):
 
 
 def value_truncate(name, value):
-    name = name.replace("_prop_", "_")
+    name = name.replace("_prop", "")
     tr_op_names = {
         "weight_20min_dns_query_name": partial(pad_left_to_length, 45),
         "weight_5min_dns_query_name": partial(pad_left_to_length, 45),
@@ -873,7 +873,7 @@ def format_client_hostname_dataframe(df):
             "client_hostname", 
             "weight_5min_dns_query_sld_by_query_sld_fraction", 
             "weight_5min_server_orgname_by_asn_fraction", 
-            "weight_5min_server_port_desc"
+            "weight_20min_server_port_desc"
         ]:
             del df[c]
     return df.to_html(
