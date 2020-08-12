@@ -43,7 +43,7 @@ vars_in_score = [
     "weight_5min_dns_query_sld_by_query_sld_fraction",
     "weight_5min_server_pfx",
     "weight_5min_server_orgname_by_asn_fraction",
-    "weight_20min_server_port_desc"
+    "weight_5min_server_port_desc"
 ]
 show_weights = False
 
@@ -873,7 +873,7 @@ def format_client_hostname_dataframe(df):
             "client_hostname", 
             "weight_5min_dns_query_sld_by_query_sld_fraction", 
             "weight_5min_server_orgname_by_asn_fraction", 
-            "weight_20min_server_port_desc"
+            "weight_5min_server_port_desc"
         ]:
             del df[c]
     return df.to_html(
