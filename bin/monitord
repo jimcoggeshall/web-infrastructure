@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+
+docker run -d --rm \
+    -p 9080:9080 \
+    -p 4040:4040 \
+    -p 22055:22055/udp \
+    -v "/home/jimcoggeshall/etc/hosts:/etc/lx2-hosts" \
+    -v "/home/jimcoggeshall/var/monitord:/var/monitord" \
+    --name lx2-monitord \
+    lx2-monitord \
+    /home/jovyan/work/monitor.py

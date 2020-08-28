@@ -1,0 +1,34 @@
+#!/bin/bash
+
+
+function cleanup {
+    rm -f /home/jimcoggeshall/var/run/watchdog.lock
+}
+trap cleanup HUP INT TERM QUIT ABRT FPE ALRM
+set -ex
+
+exec 9>/home/jimcoggeshall/var/run/watchdog.lock
+if ! flock -n 9 ; then 
+    exit 1
+fi
+
+while true; do
+    while [ -f /home/jimcoggeshall/var/monitord/watchdog/watchdog-setup.s ]; do
+        sleep 5
+    done
+    install -m 777 <(:) /home/jimcoggeshall/var/monitord/watchdog/watchdog.s
+    install -m 777 <(:) /home/jimcoggeshall/var/monitord/watchdog/watchdog-writer.s
+    sleep 5
+    if [ -f /home/jimcoggeshall/var/monitord/watchdog/watchdog.s ] || [ -f /home/jimcoggeshall/var/monitord/watchdog/watchdog-writer.s ]; then
+        /home/jimcoggeshall/bin/restart-monitord
+        sleep 5
+#else
+#    i=$(/home/jimcoggeshall/bin/monitord-read | wc -l)
+#    if [[ $i -lt 2 ]]; then
+#        /home/jimcoggeshall/bin/restart-monitord
+#        sleep 70
+#    fi
+    fi
+done
+
+rm -f /home/jimcoggeshall/var/run/watchdog.lock

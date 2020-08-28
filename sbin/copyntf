@@ -1,0 +1,3 @@
+#!/bin/bash
+
+tcpdump -KUnnevvv -Z nobody -s0 -i ens161 -w- "port 2055" | sudo -i -u reader tshark -l -N n -r- -T ek | socat -u - udp-datagram:127.0.0.1:22055

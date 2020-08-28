@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import json
+import sys
+import pyunifi
+import datetime
+from pyunifi.controller import Controller
+
+def _fix_hostname(name):
+    fixed_name = name.replace(" ", "")\
+        .replace("'", "")\
+        .replace("-", "")
+    return fixed_name
+
+def main():
+
+    now = datetime.datetime.now()
+
+    c = Controller(
+        "192.168.1.100", 
+        "readonly", 
+        "XXXXXXXXXXXXXXXXXXXXXXX",
+        "8443", 
+        "v5", 
+        "default", 
+        False
+    )
+    
+    clients = c.get_clients()
+    users = c.get_users()
+    mappings = {}
+    for client in clients:
+        this_mac = client.get("mac")
+        this_name = client.get("name")
+        this_ip = client.get("ip")
+        this_hostname = _fix_hostname(this_name)
+        mappings[this_mac] = {
+            "hostname": this_hostname,
+            "ip": this_ip
+        }
+
+    for user in users:
+        if user.get("use_fixedip", False):
+            last_seen = datetime.datetime.fromtimestamp(user.get("last_seen"))
+            days_since = (now - last_seen).days
+            if days_since < 100:
+                this_mac = user.get("mac")
+                this_name = user.get("name")
+                this_ip = user.get("fixed_ip")
+                this_hostname = _fix_hostname(this_name)
+                mappings[this_mac] = {
+                    "hostname": this_hostname,
+                    "ip": this_ip
+                }
+
+    with open("/home/jimcoggeshall/var/hosts_mapped", "w") as f:
+        for (mac, mac_info) in mappings.items():
+            #f.write(mac, mac_info.get("ip"), mac_info.get("hostname"), sep="\t")
+            f.write("\t".join([mac_info.get("ip"), mac_info.get("hostname")]))
+            f.write("\n")
+
+if __name__ == "__main__":
+    main()

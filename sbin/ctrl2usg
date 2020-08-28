@@ -1,0 +1,8 @@
+#!/bin/bash
+
+/home/jimcoggeshall/bin/update-hosts
+cp /home/jimcoggeshall/var/hosts_mapped_new /home/jimcoggeshall/var/hosts_mapped_old
+cat /home/jimcoggeshall/var/hosts_mapped /home/jimcoggeshall/var/hosts_mapped_old | sort | uniq > /home/jimcoggeshall/var/hosts_mapped_new
+cp /etc/hosts /home/jimcoggeshall/etc/hosts
+cp /etc/hosts /home/jimcoggeshall/usr/workspace/lx2-hosts
+cp /etc/hosts /home/jimcoggeshall/usr/lx2-monitor/lx2-hosts
